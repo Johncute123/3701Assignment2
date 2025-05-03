@@ -1,20 +1,35 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { NavigationContainer } from "@react-navigation/native";
+import { createStackNavigator } from "@react-navigation/stack";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import DrugCategoryScreen from "./Screen/DrugCategoryScreen";
+import DrugListScreen from "./Screen/DrugListScreen";
+import DrugDetailScreen from "./Screen/DrugDetailScreen";
+
+const Stack = createStackNavigator();
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName="DrugCategory">
+          <Stack.Screen 
+            name="DrugCategory" 
+            component={DrugCategoryScreen}
+            options={{ title: 'Drug Categories' }}
+          />
+          <Stack.Screen 
+            name="DrugList" 
+            component={DrugListScreen}
+            options={{ title: 'Drugs in Categories' }}
+          />
+          <Stack.Screen 
+            name="DrugDetail" 
+            component={DrugDetailScreen}
+            options={{ title: 'Drug Details' }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </GestureHandlerRootView>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+} 
