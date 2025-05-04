@@ -1,50 +1,65 @@
 import { Audio } from 'expo-av';
-import { Alert } from 'react-native';
 import { sounds } from './sound';
 import * as FileSystem from 'expo-file-system';
 
-export const playSound = async (soundFile, currentSound, setSound, setIsPlaying, playbackSpeed) => {
-  try {
-    console.log('soundFile', soundFile);
+export const playSound = (
+  soundFile,
+  currentSound,
+  setSound,
+  setIsPlaying,
+  playbackSpeed
+) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      if (currentSound) await currentSound.unloadAsync();
 
-    // Stop and unload current sound if playing
-    if (currentSound) {
-      await currentSound.unloadAsync();
-    }
-
-    let soundSource;
-
-    // Check if soundFile is a local file URI (recorded sound)
-    if (soundFile.startsWith('file://') || FileSystem.documentDirectory && soundFile.includes(FileSystem.documentDirectory)) {
-      soundSource = { uri: soundFile };
-    } else if (sounds && sounds[soundFile]) {
-      soundSource = sounds[soundFile]; // Preloaded sound
-    } else {
-      console.warn('Unknown sound source:', soundFile);
-      return;
-    }
-
-    const { sound: newSound } = await Audio.Sound.createAsync(
-      soundSource,
-      { rate: playbackSpeed, shouldPlay: true }
-    );
-
-    setSound(newSound);
-    setIsPlaying(true);
-
-    newSound.setOnPlaybackStatusUpdate(async status => {
-      if (status.didJustFinish && !status.isLooping) {
-        setIsPlaying(false);
-        await newSound.unloadAsync();
+      let source;
+      if (soundFile.startsWith('file://')) {
+        source = { uri: soundFile };
+      } else if (sounds && sounds[soundFile]) {
+        source = sounds[soundFile];
+      } else {
+        console.warn('❌ Unknown sound source');
+        return resolve();
       }
-    });
-    
 
-  } catch (error) {
-    console.error('Error playing sound:', error);
-  }
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        source,
+        {
+          shouldPlay: true,
+          rate: playbackSpeed,
+          progressUpdateIntervalMillis: 100,
+        }
+      );
+
+      setSound(newSound);
+      setIsPlaying(true);
+
+      const interval = setInterval(async () => {
+        const status = await newSound.getStatusAsync();
+        if (
+          status.didJustFinish ||
+          status.positionMillis >= status.durationMillis
+        ) {
+          clearInterval(interval);
+          setIsPlaying(false);
+          await newSound.unloadAsync();
+          resolve();
+        }
+      }, 100);
+
+      setTimeout(() => {
+        clearInterval(interval);
+        console.warn('⚠️ Fallback timeout triggered');
+        setIsPlaying(false);
+        newSound.unloadAsync();
+        resolve();
+      }, 10000); // fallback timeout
+    } catch (e) {
+      reject(e);
+    }
+  });
 };
-
 
 export const stopSound = async (currentSound, setIsPlaying) => {
   try {
@@ -76,7 +91,5 @@ export const getChevronIcon = (showSpeedDropdown) => {
 };
 
 export const addToStudyList = (drugName) => {
-
-  console.log('Added to study list:', drugName);
   drugName.status = "current";
 }; 

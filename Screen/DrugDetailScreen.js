@@ -1,12 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { View,Text,StyleSheet,ScrollView,TouchableOpacity,Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { drugData, drugCategory } from '../resources/resource.js';
-import { playSound,stopSound,handleSpeedSelect,toggleSpeedDropdown,getChevronIcon, addToStudyList } from '../utils/button';
-import { useDispatch, useSelector } from 'react-redux';
-import { addToLearningList } from '../src/features/learningList/learningListSlice';
+import React, { useState, useEffect } from 'react'
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Pressable
+} from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { drugData, drugCategory } from '../resources/resource.js'
+import {
+  playSound,
+  stopSound,
+  handleSpeedSelect,
+  toggleSpeedDropdown,
+  getChevronIcon,
+  addToStudyList
+} from '../utils/button'
+import { useDispatch, useSelector } from 'react-redux'
+import { addToLearningList } from '../src/features/learningList/learningListSlice'
+import { getRecordings } from '../src/features/audio/audioSlice.js'
 
-const speed_options = [0.25, 0.33, 0.75, 1.0];
+const speed_options = [0.25, 0.33, 0.75, 1.0]
 
 const CategoryChip = ({ categoryId }) => (
   <View style={styles.categoryChip}>
@@ -14,24 +29,29 @@ const CategoryChip = ({ categoryId }) => (
       {drugCategory[categoryId]?.name || 'Unknown Category'}
     </Text>
   </View>
-);
+)
 
 const SpeedOption = ({ speed, isSelected, onSelect }) => (
   <TouchableOpacity
     style={[styles.speedOption, isSelected && styles.speedOptionActive]}
     onPress={onSelect}
   >
-    <Text style={[styles.speedOptionText, isSelected && styles.speedOptionTextActive]}>
+    <Text
+      style={[
+        styles.speedOptionText,
+        isSelected && styles.speedOptionTextActive
+      ]}
+    >
       {speed}
     </Text>
   </TouchableOpacity>
-);
+)
 
-const PronunciationLabel = ({ 
-  soundItem, 
-  isPlaying, 
-  selectedSound, 
-  playbackSpeed, 
+const PronunciationLabel = ({
+  soundItem,
+  isPlaying,
+  selectedSound,
+  playbackSpeed,
   showSpeedDropdown,
   sound,
   setSelectedSound,
@@ -40,16 +60,25 @@ const PronunciationLabel = ({
   setSound,
   setPlaybackSpeed
 }) => {
-  const handlePlayPress = () => {
+  const handlePlayPress = async () => {
     setSelectedSound(soundItem);
     if (isPlaying) {
       stopSound(sound, setIsPlaying);
     } else {
-      playSound(soundItem.file, sound, setSound, setIsPlaying, playbackSpeed);
+      await playSound(
+        soundItem.file,
+        sound,
+        setSound,
+        setIsPlaying,
+        playbackSpeed
+      );
+      console.log('✅ Finished playing:', soundItem.file); // This WILL run after audio finishes
     }
   };
+  
+  
 
-  const handleSpeedOptionPress = (speed) => {
+  const handleSpeedOptionPress = speed => {
     handleSpeedSelect(
       speed,
       setPlaybackSpeed,
@@ -59,8 +88,8 @@ const PronunciationLabel = ({
       soundItem.file,
       setSound,
       setIsPlaying
-    );
-  };
+    )
+  }
 
   return (
     <View style={styles.pronunciationLabel}>
@@ -69,46 +98,45 @@ const PronunciationLabel = ({
           <Ionicons
             name={soundItem.gender === 'female' ? 'female' : 'male'}
             size={24}
-            color="#2196F3"
+            color='#2196F3'
           />
         </View>
         <Text style={styles.pronunciationText}>
-          {soundItem.gender === 'female' ? 'Female' : 'Male'} 
+          {soundItem.gender === 'female' ? 'Female' : 'Male'}
         </Text>
       </View>
-      
+
       <View style={styles.labelControls}>
-        <TouchableOpacity
-          style={styles.playButton}
-          onPress={handlePlayPress}
-        >
+        <TouchableOpacity style={styles.playButton} onPress={handlePlayPress}>
           <Ionicons
             name={isPlaying && selectedSound === soundItem ? 'pause' : 'play'}
             size={24}
-            color="#fff"
+            color='#fff'
           />
         </TouchableOpacity>
 
         <View style={styles.speedDropdownContainer}>
           <TouchableOpacity
             style={styles.speedDropdown}
-            onPress={() => toggleSpeedDropdown(
-              setShowSpeedDropdown,
-              showSpeedDropdown,
-              setSelectedSound,
-              soundItem
-            )}
+            onPress={() =>
+              toggleSpeedDropdown(
+                setShowSpeedDropdown,
+                showSpeedDropdown,
+                setSelectedSound,
+                soundItem
+              )
+            }
           >
             <Text style={styles.speedDropdownText}>{playbackSpeed}x</Text>
-            <Ionicons 
-              name={getChevronIcon(showSpeedDropdown)} 
-              size={16} 
-              color="#000" 
+            <Ionicons
+              name={getChevronIcon(showSpeedDropdown)}
+              size={16}
+              color='#000'
             />
           </TouchableOpacity>
           {showSpeedDropdown && selectedSound === soundItem && (
             <View style={styles.speedOptions}>
-              {speed_options.map((speed) => (
+              {speed_options.map(speed => (
                 <SpeedOption
                   key={speed}
                   speed={speed}
@@ -121,37 +149,53 @@ const PronunciationLabel = ({
         </View>
       </View>
     </View>
-  );
-};
+  )
+}
 
-export default function DrugDetailScreen({ route }) {
-  const { drugId } = route.params;
-  const drug = drugData.find(d => d.id === drugId);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [selectedSound, setSelectedSound] = useState(null);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
-  const [showSpeedDropdown, setShowSpeedDropdown] = useState(false);
-  const [sound, setSound] = useState(null);
-  const dispatch = useDispatch();
-  const learningList = useSelector(state => state.learningList.items);
+export default function DrugDetailScreen ({ route }) {
+  const { drugId } = route.params
+  const drug = drugData.find(d => d.id === drugId)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [selectedSound, setSelectedSound] = useState(null)
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0)
+  const [showSpeedDropdown, setShowSpeedDropdown] = useState(false)
+  const [sound, setSound] = useState(null)
+  const dispatch = useDispatch()
+  const learningList = useSelector(state => state.learningList.items)
+  const audio = useSelector(state => state.audio.recordings)
 
   const handleAddToLearningList = () => {
-    dispatch(addToLearningList({
-      drugId: drug.id,
-      name: drug.name,
-      category: drug.category,
-      pronunciations: drug.pronunciations,
-    }));
-  };
+    const findAudio = audio.find(item => item.drugId === drug.id)
+    if (!findAudio) {
+      const newAudio = drug.sounds.map(item => ({
+        drugId: drug.id,
+        drugName: drug.name,
+        file: item.file,
+        gender: item.gender,
+        recordingUri: undefined
+      }))
+      const addNewAudio = JSON.parse(JSON.stringify(audio)).concat(newAudio)
 
-  const isInLearningList = learningList.some(item => item.drugId === drug.id);
+      dispatch(getRecordings(addNewAudio))
+    }
+    dispatch(
+      addToLearningList({
+        drugId: drug.id,
+        name: drug.name,
+        category: drug.category,
+        pronunciations: drug.pronunciations
+      })
+    )
+  }
+
+  const isInLearningList = learningList.some(item => item.drugId === drug.id)
 
   if (!drug) {
     return (
       <View style={styles.container}>
         <Text>Loading...</Text>
       </View>
-    );
+    )
   }
 
   return (
@@ -178,7 +222,7 @@ export default function DrugDetailScreen({ route }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Categories</Text>
         <View style={styles.categoriesContainer}>
-          {drug.categories.map((categoryId) => (
+          {drug.categories.map(categoryId => (
             <CategoryChip key={categoryId} categoryId={categoryId} />
           ))}
         </View>
@@ -204,56 +248,66 @@ export default function DrugDetailScreen({ route }) {
         ))}
       </View>
 
-      {!isInLearningList && <View style={styles.studyButtonContainer}>
-        <TouchableOpacity
-          style={[styles.studyButton, isInLearningList && styles.studyButtonActive]}
-          onPress={handleAddToLearningList}
-          disabled={isInLearningList}
-        >
-          <Text style={[styles.studyButtonText, isInLearningList && styles.studyButtonTextActive]}>
-            Study
-          </Text>
-        </TouchableOpacity>
-      </View>}
+      {!isInLearningList && (
+        <View style={styles.studyButtonContainer}>
+          <TouchableOpacity
+            style={[
+              styles.studyButton,
+              isInLearningList && styles.studyButtonActive
+            ]}
+            onPress={handleAddToLearningList}
+            disabled={isInLearningList}
+          >
+            <Text
+              style={[
+                styles.studyButtonText,
+                isInLearningList && styles.studyButtonTextActive
+              ]}
+            >
+              Study
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </ScrollView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#fff'
   },
   section: {
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#eee'
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 8
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
-    fontStyle: 'italic',
+    fontStyle: 'italic'
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
-    color: '#000',
+    color: '#000'
   },
   text: {
     fontSize: 16,
     lineHeight: 24,
-    color: '#333',
+    color: '#333'
   },
   categoriesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 8,
+    marginTop: 8
   },
   categoryChip: {
     backgroundColor: '#E3F2FD',
@@ -261,11 +315,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     marginRight: 8,
-    marginBottom: 8,
+    marginBottom: 8
   },
   categoryText: {
     color: '#1976D2',
-    fontSize: 14,
+    fontSize: 14
   },
   pronunciationLabel: {
     marginBottom: 16,
@@ -273,28 +327,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#eee'
   },
   labelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 12
   },
   genderIconContainer: {
     backgroundColor: '#E3F2FD',
     padding: 8,
     borderRadius: 20,
-    marginRight: 12,
+    marginRight: 12
   },
   pronunciationText: {
     fontSize: 16,
     color: '#333',
-    fontWeight: '500',
+    fontWeight: '500'
   },
   labelControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between'
   },
   playButton: {
     backgroundColor: '#2196F3',
@@ -307,10 +361,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 2
   },
   speedDropdownContainer: {
-    position: 'relative',
+    position: 'relative'
   },
   speedDropdown: {
     flexDirection: 'row',
@@ -320,12 +374,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#ddd'
   },
   speedDropdownText: {
     color: '#666',
     marginRight: 4,
-    fontSize: 14,
+    fontSize: 14
   },
   speedOptions: {
     position: 'absolute',
@@ -337,29 +391,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     marginTop: 4,
-    zIndex: 1,
+    zIndex: 1
   },
   speedOption: {
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#eee'
   },
   speedOptionActive: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#2196F3'
   },
   speedOptionText: {
     fontSize: 14,
     color: '#333',
-    textAlign: 'center',
+    textAlign: 'center'
   },
   speedOptionTextActive: {
-    color: '#fff',
+    color: '#fff'
   },
   studyButtonContainer: {
     padding: 20,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: '#eee'
   },
   studyButton: {
     backgroundColor: '#4CAF50',
@@ -372,12 +426,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 2
   },
   studyButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: 'bold'
   },
   addButton: {
     backgroundColor: '#4CAF50',
@@ -390,14 +444,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 2
   },
   addButtonActive: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#2196F3'
   },
   addButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-});
+    fontWeight: 'bold'
+  }
+})

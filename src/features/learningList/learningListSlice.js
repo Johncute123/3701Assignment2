@@ -8,6 +8,9 @@ export const learningListSlice = createSlice({
   name: 'learningList',
   initialState,
   reducers: {
+    getLearningList: (state, action) => {
+      state.items = action.payload;
+    },
     addToLearningList: (state, action) => {
       state.items.push({
         id: Date.now(),
@@ -28,6 +31,6 @@ export const learningListSlice = createSlice({
   },
 });
 
-export const { addToLearningList, updateStatus, removeFromLearningList } = learningListSlice.actions;
+export const { addToLearningList, updateStatus, removeFromLearningList, getLearningList } = learningListSlice.actions;
 
 export default learningListSlice.reducer; 

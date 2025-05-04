@@ -22,8 +22,8 @@ const Tab = createBottomTabNavigator()
 function Learning () {
   return (
     <Stack.Navigator initialRouteName='LearningList'>
-      <Stack.Screen name='LearningList' component={LearningListScreen} />
-      <Stack.Screen name='LearningDetailScreen' component={LearningDetailScreen} />
+      <Stack.Screen name='LearningList' options={{ headerShown: false }} component={LearningListScreen} />
+      <Stack.Screen name='LearningDetailScreen' options={{ headerShown: false }} component={LearningDetailScreen} />
     </Stack.Navigator>
 
   )
@@ -71,9 +71,7 @@ function MyTabs () {
   const dispatch = useDispatch()
   const learningList = useSelector(state => state.learningList.items);
   const currentItems = learningList.filter(item => item.status === "current");
-  console.log(currentItems);
   const audio = useSelector(state => state.audio.recordings);
-  console.log('audio', audio)
   useEffect(() => {
     let newSounds = []
     for (let i = 0; i < drugData.length; i++) {

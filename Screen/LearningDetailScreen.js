@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert
 } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
 import { Audio } from 'expo-av'
 import { drugData, drugCategory } from '../resources/resource.js'
@@ -24,6 +25,7 @@ import {
 } from '../src/features/learningList/learningListSlice'
 import { addRecording, getRecordings } from '../src/features/audio/audioSlice'
 import { getEnforcing } from 'react-native/Libraries/TurboModule/TurboModuleRegistry.js'
+import { getLearningList } from '../src/features/learningList/learningListSlice'
 
 const speed_options = [0.25, 0.33, 0.75, 1.0]
 
@@ -57,11 +59,19 @@ const PronunciationLabel = ({
   setPlaybackSpeed
 }) => {
   const handlePlayPress = () => {
-    setSelectedSound(soundItem)
     if (isPlaying) {
       stopSound(sound, setIsPlaying)
     } else {
-      playSound(soundItem.file ? soundItem.file : soundItem.recordingUri, sound, setSound, setIsPlaying, playbackSpeed)
+      setSelectedSound(soundItem)
+      playSound(
+        soundItem.file ? soundItem.file : soundItem.recordingUri,
+        sound,
+        setSound,
+        setIsPlaying,
+        playbackSpeed,
+        () => {},
+        setSelectedSound
+      )
     }
   }
 
@@ -152,9 +162,16 @@ export default function LearningDetailScreen ({ route, navigation }) {
   const [sound, setSound] = useState(null)
   const [isRecording, setIsRecording] = useState(false)
   const [recording, setRecording] = useState(null)
+  const [filteredAudio, setFilteredAudio] = useState()
   const dispatch = useDispatch()
 
-  const filteredAudio = audio.filter(item => item.drugId === drug.id && item.drugName === drug.name)
+  useEffect(() => {
+    if(drug) {
+    const filteredAudioData = audio.filter(item => item.drugId == drug.id)
+    setFilteredAudio(filteredAudioData)
+    }
+  }, [audio])
+
 
   useEffect(() => {
     return () => {
@@ -225,7 +242,10 @@ export default function LearningDetailScreen ({ route, navigation }) {
   }
 
   const handleRemove = () => {
-    dispatch(removeFromLearningList(item.id))
+    const updateLearningList = learningList.filter(i => i.id !== item.id)
+    dispatch(getLearningList(updateLearningList))
+    const updateRecording = audio.filter(item => item.drugId !== drug.id)
+    dispatch(getRecordings(updateRecording))
     navigation.goBack()
   }
 
@@ -241,6 +261,11 @@ export default function LearningDetailScreen ({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container}>
+<View style={styles.header}>
+  <TouchableOpacity onPress={() => navigation.goBack()}>
+    <Ionicons name="arrow-back" size={24} color="#000" />
+  </TouchableOpacity>
+</View>
       <View style={styles.section}>
         <Text style={styles.title}>{drug.name}</Text>
         {drug.other_names.length > 0 && (
@@ -262,7 +287,7 @@ export default function LearningDetailScreen ({ route, navigation }) {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Pronunciation</Text>
-        {filteredAudio.map((soundItem, index) => (
+        {filteredAudio && filteredAudio.map((soundItem, index) => (
           <PronunciationLabel
             key={index}
             soundItem={soundItem}
@@ -365,6 +390,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee'
   },
+  header: {
+    paddingTop: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  
   labelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
