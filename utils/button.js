@@ -1,34 +1,50 @@
 import { Audio } from 'expo-av';
 import { Alert } from 'react-native';
 import { sounds } from './sound';
+import * as FileSystem from 'expo-file-system';
 
 export const playSound = async (soundFile, currentSound, setSound, setIsPlaying, playbackSpeed) => {
   try {
+    console.log('soundFile', soundFile);
+
+    // Stop and unload current sound if playing
     if (currentSound) {
       await currentSound.unloadAsync();
     }
 
-    if (!sounds || !sounds[soundFile]) {
-      return; 
+    let soundSource;
+
+    // Check if soundFile is a local file URI (recorded sound)
+    if (soundFile.startsWith('file://') || FileSystem.documentDirectory && soundFile.includes(FileSystem.documentDirectory)) {
+      soundSource = { uri: soundFile };
+    } else if (sounds && sounds[soundFile]) {
+      soundSource = sounds[soundFile]; // Preloaded sound
+    } else {
+      console.warn('Unknown sound source:', soundFile);
+      return;
     }
 
-    const soundSource = sounds[soundFile];
     const { sound: newSound } = await Audio.Sound.createAsync(
       soundSource,
-      { rate: playbackSpeed }
+      { rate: playbackSpeed, shouldPlay: true }
     );
+
     setSound(newSound);
-    await newSound.playAsync();
     setIsPlaying(true);
-    newSound.setOnPlaybackStatusUpdate((status) => {
-      if (status.didJustFinish) {
+
+    newSound.setOnPlaybackStatusUpdate(async status => {
+      if (status.didJustFinish && !status.isLooping) {
         setIsPlaying(false);
+        await newSound.unloadAsync();
       }
     });
+    
+
   } catch (error) {
     console.error('Error playing sound:', error);
   }
 };
+
 
 export const stopSound = async (currentSound, setIsPlaying) => {
   try {

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { NavigationContainer } from '@react-navigation/native'
 import { createStackNavigator } from '@react-navigation/stack'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -12,7 +12,9 @@ import { Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import LearningListScreen from './Screen/LearningListScreen'
 import LearningDetailScreen from './Screen/LearningDetailScreen'
-
+import { drugData } from './resources/resource'
+import { getRecordings } from './src/features/audio/audioSlice'
+import { useDispatch } from 'react-redux'
 const Stack = createStackNavigator()
 
 const Tab = createBottomTabNavigator()
@@ -66,9 +68,26 @@ function Drugs () {
 }
 
 function MyTabs () {
+  const dispatch = useDispatch()
   const learningList = useSelector(state => state.learningList.items);
   const currentItems = learningList.filter(item => item.status === "current");
   console.log(currentItems);
+  const audio = useSelector(state => state.audio.recordings);
+  console.log('audio', audio)
+  useEffect(() => {
+    let newSounds = []
+    for (let i = 0; i < drugData.length; i++) {
+      for (let j = 0; j < drugData[i].sounds.length; j++) {
+        newSounds.push({
+          ...drugData[i].sounds[j],
+          drugId: drugData[i].id,
+          drugName: drugData[i].name,
+          recordingUri: audio.find(item => item.drugId === drugData[i].id && item.drugName === drugData[i].name)?.recordingUri
+        })
+      }
+    }
+    dispatch(getRecordings(newSounds))
+  }, [])
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({

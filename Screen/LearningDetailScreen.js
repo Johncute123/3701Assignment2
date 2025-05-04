@@ -1,12 +1,14 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity
+  TouchableOpacity,
+  Alert
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { Audio } from 'expo-av'
 import { drugData, drugCategory } from '../resources/resource.js'
 import {
   playSound,
@@ -20,6 +22,8 @@ import {
   updateStatus,
   removeFromLearningList
 } from '../src/features/learningList/learningListSlice'
+import { addRecording, getRecordings } from '../src/features/audio/audioSlice'
+import { getEnforcing } from 'react-native/Libraries/TurboModule/TurboModuleRegistry.js'
 
 const speed_options = [0.25, 0.33, 0.75, 1.0]
 
@@ -57,7 +61,7 @@ const PronunciationLabel = ({
     if (isPlaying) {
       stopSound(sound, setIsPlaying)
     } else {
-      playSound(soundItem.file, sound, setSound, setIsPlaying, playbackSpeed)
+      playSound(soundItem.file ? soundItem.file : soundItem.recordingUri, sound, setSound, setIsPlaying, playbackSpeed)
     }
   }
 
@@ -79,13 +83,13 @@ const PronunciationLabel = ({
       <View style={styles.labelHeader}>
         <View style={styles.genderIconContainer}>
           <Ionicons
-            name={soundItem.gender === 'female' ? 'female' : 'male'}
+            name={soundItem.gender === 'female' ? 'female' : soundItem.gender === 'male' ? 'male' : 'user'}
             size={24}
             color='#2196F3'
           />
         </View>
         <Text style={styles.pronunciationText}>
-          {soundItem.gender === 'female' ? 'Female' : 'Male'}
+          {soundItem.gender === 'female' ? 'Female' : soundItem.gender === 'male' ? 'Male' : 'User'}
         </Text>
       </View>
 
@@ -138,15 +142,79 @@ const PronunciationLabel = ({
 export default function LearningDetailScreen ({ route, navigation }) {
   const { categoryId } = route.params
   const learningList = useSelector(state => state.learningList.items)
+  const audio = useSelector(state => state.audio.recordings)
   const item = learningList.find(i => i.id === categoryId)
-  // Cross-reference drugData for full details
   const drug = item ? drugData.find(d => d.id === item.drugId) : null
   const [isPlaying, setIsPlaying] = useState(false)
   const [selectedSound, setSelectedSound] = useState(null)
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0)
   const [showSpeedDropdown, setShowSpeedDropdown] = useState(false)
   const [sound, setSound] = useState(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recording, setRecording] = useState(null)
   const dispatch = useDispatch()
+
+  const filteredAudio = audio.filter(item => item.drugId === drug.id && item.drugName === drug.name)
+
+  useEffect(() => {
+    return () => {
+      if (recording) {
+        recording.stopAndUnloadAsync()
+      }
+    }
+  }, [recording])
+
+  const startRecording = async () => {
+    try {
+      await Audio.requestPermissionsAsync()
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true
+      })
+
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      )
+      setRecording(recording)
+    } catch (err) {
+      Alert.alert('Error', 'Failed to start recording')
+      console.error('Failed to start recording', err)
+    }
+  }
+
+  const stopRecording = async () => {
+    try {
+      if (!recording) return
+
+      await recording.stopAndUnloadAsync()
+      const uri = recording.getURI()
+      setRecording(null)
+
+      if (drug) {
+        dispatch(
+          addRecording({
+            drugId: drug.id,
+            drugName: drug.name,
+            recordingUri: uri,
+            timestamp: new Date().toISOString()
+          })
+        )
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to stop recording')
+      console.error('Failed to stop recording', err)
+    }
+  }
+
+  const handleRecordPressIn = async () => {
+    setIsRecording(true)
+    await startRecording()
+  }
+
+  const handleRecordPressOut = async () => {
+    setIsRecording(false)
+    await stopRecording()
+  }
 
   if (!item || !drug) {
     return (
@@ -194,7 +262,7 @@ export default function LearningDetailScreen ({ route, navigation }) {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Pronunciation</Text>
-        {drug.sounds.map((soundItem, index) => (
+        {filteredAudio.map((soundItem, index) => (
           <PronunciationLabel
             key={index}
             soundItem={soundItem}
@@ -212,9 +280,26 @@ export default function LearningDetailScreen ({ route, navigation }) {
         ))}
       </View>
 
+      <View style={styles.recordButtonContainer}>
+        <TouchableOpacity
+          style={[styles.recordButton, isRecording && styles.recordingButton]}
+          onPressIn={handleRecordPressIn}
+          onPressOut={handleRecordPressOut}
+        >
+          <Text style={styles.recordButtonText}>
+            {isRecording ? 'Recording...' : 'Hold to Record'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.actionButtonsContainer}>
-        <TouchableOpacity style={styles.finishButton} onPress={item.status === 'finished' ? handleReview : handleFinish}>
-          <Text style={styles.actionButtonText}>{item.status === 'finished' ? 'REVIEW' : 'FINISH'}</Text>
+        <TouchableOpacity
+          style={styles.finishButton}
+          onPress={item.status === 'finished' ? handleReview : handleFinish}
+        >
+          <Text style={styles.actionButtonText}>
+            {item.status === 'finished' ? 'REVIEW' : 'FINISH'}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.removeButton} onPress={handleRemove}>
           <Text style={styles.actionButtonText}>REMOVE</Text>
@@ -400,5 +485,32 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold'
+  },
+  recordButtonContainer: {
+    alignItems: 'center',
+    marginBottom: 16
+  },
+
+  recordButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#e57373',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3
+  },
+
+  recordButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold'
+  },
+  recordingButton: {
+    backgroundColor: '#ff5252'
   }
 })
