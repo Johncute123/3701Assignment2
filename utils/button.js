@@ -62,4 +62,5 @@ export const getChevronIcon = (showSpeedDropdown) => {
 export const addToStudyList = (drugName) => {
 
   console.log('Added to study list:', drugName);
+  drugName.status = "current";
 }; 

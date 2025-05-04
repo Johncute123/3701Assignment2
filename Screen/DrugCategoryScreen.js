@@ -6,6 +6,7 @@ export default function DrugCategoryScreen({ navigation }) {
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
+    // console.log('drugData', drugData
     const categoryCounts = {};
     drugData.forEach(drug => {
       drug.categories.forEach(category => {

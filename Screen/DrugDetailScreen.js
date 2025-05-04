@@ -3,6 +3,8 @@ import { View,Text,StyleSheet,ScrollView,TouchableOpacity,Pressable } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import { drugData, drugCategory } from '../resources/resource.js';
 import { playSound,stopSound,handleSpeedSelect,toggleSpeedDropdown,getChevronIcon, addToStudyList } from '../utils/button';
+import { useDispatch, useSelector } from 'react-redux';
+import { addToLearningList } from '../src/features/learningList/learningListSlice';
 
 const speed_options = [0.25, 0.33, 0.75, 1.0];
 
@@ -124,17 +126,25 @@ const PronunciationLabel = ({
 
 export default function DrugDetailScreen({ route }) {
   const { drugId } = route.params;
-  const [drug, setDrug] = useState(null);
-  const [sound, setSound] = useState(null);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const drug = drugData.find(d => d.id === drugId);
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedSound, setSelectedSound] = useState(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [showSpeedDropdown, setShowSpeedDropdown] = useState(false);
+  const [sound, setSound] = useState(null);
+  const dispatch = useDispatch();
+  const learningList = useSelector(state => state.learningList.items);
 
-  useEffect(() => {
-    const selectedDrug = drugData.find(d => d.id === drugId);
-    setDrug(selectedDrug);
-  }, [drugId]);
+  const handleAddToLearningList = () => {
+    dispatch(addToLearningList({
+      drugId: drug.id,
+      name: drug.name,
+      category: drug.category,
+      pronunciations: drug.pronunciations,
+    }));
+  };
+
+  const isInLearningList = learningList.some(item => item.drugId === drug.id);
 
   if (!drug) {
     return (
@@ -194,14 +204,17 @@ export default function DrugDetailScreen({ route }) {
         ))}
       </View>
 
-      <View style={styles.studyButtonContainer}>
+      {!isInLearningList && <View style={styles.studyButtonContainer}>
         <TouchableOpacity
-          style={styles.studyButton}
-          onPress={() => addToStudyList(drug.name)}
+          style={[styles.studyButton, isInLearningList && styles.studyButtonActive]}
+          onPress={handleAddToLearningList}
+          disabled={isInLearningList}
         >
-          <Text style={styles.studyButtonText}>Add to Study List</Text>
+          <Text style={[styles.studyButtonText, isInLearningList && styles.studyButtonTextActive]}>
+            Study
+          </Text>
         </TouchableOpacity>
-      </View>
+      </View>}
     </ScrollView>
   );
 }
@@ -362,6 +375,27 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   studyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  addButton: {
+    backgroundColor: '#4CAF50',
+    padding: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  addButtonActive: {
+    backgroundColor: '#2196F3',
+  },
+  addButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',

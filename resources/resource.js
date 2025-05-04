@@ -10,6 +10,7 @@ export const drugData = [
         { gender: "female", file: "Ibuprofen - female.wav" },
         { gender: "male", file: "Ibuprofen 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0016",
@@ -22,6 +23,7 @@ export const drugData = [
         { gender: "female", file: "Celecoxib - female.wav" },
         { gender: "male", file: "Celecoxib 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0017",
@@ -34,6 +36,7 @@ export const drugData = [
         { gender: "female", file: "Chloramphenicol - female.wav" },
         { gender: "male", file: "Chloramphenicol 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0018",
@@ -46,6 +49,7 @@ export const drugData = [
         { gender: "female", file: "Diphenoxylate - female.wav" },
         { gender: "male", file: "Diphenoxylate 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0019",
@@ -58,6 +62,7 @@ export const drugData = [
         { gender: "female", file: "Famciclovir - female.wav" },
         { gender: "male", file: "Famciclovir 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0020",
@@ -70,6 +75,7 @@ export const drugData = [
         { gender: "female", file: "Fluconazole - female.wav" },
         { gender: "male", file: "Fluconazole 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0021",
@@ -82,6 +88,7 @@ export const drugData = [
         { gender: "female", file: "Glyceryl trinitrate - female.wav" },
         { gender: "male", file: "Glyceryl trinitrate 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0022",
@@ -94,6 +101,7 @@ export const drugData = [
         { gender: "female", file: "Hydrocortisone - female.wav" },
         { gender: "male", file: "Hydrocortisone 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0023",
@@ -106,6 +114,7 @@ export const drugData = [
         { gender: "female", file: "Levonorgestrel - female.wav" },
         { gender: "male", file: "Levonorgestrel 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0024",
@@ -118,6 +127,7 @@ export const drugData = [
         { gender: "female", file: "Melatonin - female.wav" },
         { gender: "male", file: "Melatonin 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0025",
@@ -130,6 +140,7 @@ export const drugData = [
         { gender: "female", file: "Naloxone - female.wav" },
         { gender: "male", file: "Naloxone 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0026",
@@ -154,6 +165,7 @@ export const drugData = [
         { gender: "female", file: "Paracetamol - female.wav" },
         { gender: "male", file: "Paracetamol 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0028",
@@ -166,6 +178,7 @@ export const drugData = [
         { gender: "female", file: "Promethazine - female.wav" },
         { gender: "male", file: "Promethazine 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0029",
@@ -178,6 +191,7 @@ export const drugData = [
         { gender: "female", file: "Pseudoephedrine - female.wav" },
         { gender: "male", file: "Pseudoephedrine 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0030",
@@ -190,6 +204,7 @@ export const drugData = [
         { gender: "female", file: "Salbutamol - female.wav" },
         { gender: "male", file: "Salbutamol 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0031",
@@ -202,6 +217,7 @@ export const drugData = [
         { gender: "female", file: "Sumatriptan - female.wav" },
         { gender: "male", file: "Sumatriptan 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0032",
@@ -214,6 +230,7 @@ export const drugData = [
         { gender: "female", file: "Terbutaline - female.wav" },
         { gender: "male", file: "Terbutaline 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0033",
@@ -226,6 +243,7 @@ export const drugData = [
         { gender: "female", file: "Triamcinolone - female.wav" },
         { gender: "male", file: "Triamcinolone 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0034",
@@ -238,6 +256,7 @@ export const drugData = [
         { gender: "female", file: "Ulipristal - female.wav" },
         { gender: "male", file: "Ulipristal 1 - male.wav" },
       ],
+      status: "",
     },
     {
       id: "d_0035",
@@ -247,6 +266,7 @@ export const drugData = [
       categories: ["c_0001"],
       molecular_formula: "C18H23NO3",
       sounds: [{ gender: "female", file: "Dihydrocodeine - female.wav" }],
+      status: "",
     },
     {
       id: "d_0036",
@@ -256,6 +276,7 @@ export const drugData = [
       categories: ["c_0011"],
       molecular_formula: "C17H22N2O",
       sounds: [{ gender: "female", file: "Doxylamine - female.wav" }],
+      status: "",
     },
     {
       id: "d_0037",
@@ -265,6 +286,7 @@ export const drugData = [
       categories: ["c_0010", "c_0005"],
       molecular_formula: "C14H22ClN3O2",
       sounds: [{ gender: "female", file: "Metoclopramide - female.wav" }],
+      status: "",
     },
     {
       id: "d_0038",
@@ -274,6 +296,7 @@ export const drugData = [
       categories: ["c_0010"],
       molecular_formula: "C20H24ClN3S",
       sounds: [{ gender: "female", file: "Prochlorperazine - female.wav" }],
+      status: "",
     },
   ];
   
