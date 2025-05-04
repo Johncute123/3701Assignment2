@@ -11,6 +11,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import LearningListScreen from './Screen/LearningListScreen'
+import LearningDetailScreen from './Screen/LearningDetailScreen'
 
 const Stack = createStackNavigator()
 
@@ -18,7 +19,11 @@ const Tab = createBottomTabNavigator()
 
 function Learning () {
   return (
-    <LearningListScreen />
+    <Stack.Navigator initialRouteName='LearningList'>
+      <Stack.Screen name='LearningList' component={LearningListScreen} />
+      <Stack.Screen name='LearningDetailScreen' component={LearningDetailScreen} />
+    </Stack.Navigator>
+
   )
 }
 
