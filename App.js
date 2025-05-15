@@ -8,28 +8,32 @@ import DrugCategoryScreen from './Screen/DrugCategoryScreen'
 import DrugListScreen from './Screen/DrugListScreen'
 import DrugDetailScreen from './Screen/DrugDetailScreen'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { Text, View } from 'react-native'
+import { Text, View, Alert } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import LearningListScreen from './Screen/LearningListScreen'
 import LearningDetailScreen from './Screen/LearningDetailScreen'
 import { drugData } from './resources/resource'
 import { getRecordings } from './src/features/audio/audioSlice'
 import { useDispatch } from 'react-redux'
-const Stack = createStackNavigator()
+import UserProfileScreen from './Screen/UserProfileScreen'
+import { useNavigation } from '@react-navigation/native'
+import SignInScreen from './Screen/SignInScreen'
+import SignUpScreen from './Screen/SignUpScreen'
 
+
+const Stack = createStackNavigator()
 const Tab = createBottomTabNavigator()
 
-function Learning () {
+function Learning() {
   return (
     <Stack.Navigator initialRouteName='LearningList'>
       <Stack.Screen name='LearningList' options={{ headerShown: false }} component={LearningListScreen} />
       <Stack.Screen name='LearningDetailScreen' options={{ headerShown: false }} component={LearningDetailScreen} />
     </Stack.Navigator>
-
   )
 }
 
-function Community () {
+function Community() {
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <Text>Community</Text>
@@ -37,15 +41,7 @@ function Community () {
   )
 }
 
-function Profile () {
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text>Profile</Text>
-    </View>
-  )
-}
-
-function Drugs () {
+function Drugs() {
   return (
     <Stack.Navigator initialRouteName='DrugCategory'>
       <Stack.Screen
@@ -67,11 +63,14 @@ function Drugs () {
   )
 }
 
-function MyTabs () {
+function MyTabs() {
   const dispatch = useDispatch()
-  const learningList = useSelector(state => state.learningList.items);
-  const currentItems = learningList.filter(item => item.status === "current");
-  const audio = useSelector(state => state.audio.recordings);
+  const learningList = useSelector(state => state.learningList.items)
+  const currentItems = learningList.filter(item => item.status === "current")
+  const audio = useSelector(state => state.audio.recordings)
+  const navigation = useNavigation()
+  const isAuthenticated = useSelector(state => state.auth.isAuthenticated)
+
   useEffect(() => {
     let newSounds = []
     for (let i = 0; i < drugData.length; i++) {
@@ -86,21 +85,43 @@ function MyTabs () {
     }
     dispatch(getRecordings(newSounds))
   }, [])
+
+  const handleLearningTabPress = (e) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      Alert.alert(
+        'Login Required',
+        'Please sign in to access the Learning tab',
+        [
+          {
+            text: 'Sign In',
+            onPress: () => navigation.navigate('Profile'),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+    }
+  };
+
   return (
     <Tab.Navigator
+    initialRouteName='Profile'
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
+          let iconName
           if (route.name === 'Drugs') {
-            iconName = focused ? 'bag-add' : 'bag-add';
+            iconName = focused ? 'bag-add' : 'bag-add'
           } else if (route.name === 'Learning') {
-            iconName = focused ? 'home' : 'home';
+            iconName = focused ? 'home' : 'home'
           } else if (route.name === 'Community') {
-            iconName = focused ? 'people' : 'people';
+            iconName = focused ? 'people' : 'people'
           } else if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person';
+            iconName = focused ? 'person' : 'person'
           }
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName} size={size} color={color} />
         },
         tabBarActiveTintColor: 'blue',
         tabBarInactiveTintColor: 'gray',
@@ -113,20 +134,29 @@ function MyTabs () {
         options={{
           tabBarBadge: currentItems.length > 0 ? currentItems.length : null,
         }}
+        listeners={{
+          tabPress: handleLearningTabPress,
+        }}
       />
       <Tab.Screen name='Community' component={Community} />
-      <Tab.Screen name='Profile' component={Profile} />
+      <Tab.Screen name='Profile' component={UserProfileScreen} />
     </Tab.Navigator>
-  );
+  )
 }
 
-export default function App () {
+function Navigation() {
+  return (
+    <NavigationContainer>
+      <MyTabs />
+    </NavigationContainer>
+  )
+}
+
+export default function App() {
   return (
     <Provider store={store}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <NavigationContainer>
-          <MyTabs />
-        </NavigationContainer>
+        <Navigation />
       </GestureHandlerRootView>
     </Provider>
   )

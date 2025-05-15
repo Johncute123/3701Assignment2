@@ -19,7 +19,7 @@ export const playSound = (
       } else if (sounds && sounds[soundFile]) {
         source = sounds[soundFile];
       } else {
-        console.warn('❌ Unknown sound source');
+        console.warn('Unknown sound source');
         return resolve();
       }
 
@@ -54,7 +54,7 @@ export const playSound = (
         setIsPlaying(false);
         newSound.unloadAsync();
         resolve();
-      }, 10000); // fallback timeout
+      }, 10000); 
     } catch (e) {
       reject(e);
     }

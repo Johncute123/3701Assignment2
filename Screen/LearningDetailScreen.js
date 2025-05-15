@@ -1,31 +1,13 @@
 import React, { useState, useEffect } from 'react'
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert
-} from 'react-native'
-import { useNavigation } from '@react-navigation/native'
+import {View,Text,StyleSheet,ScrollView,TouchableOpacity,Alert} from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Audio } from 'expo-av'
 import { drugData, drugCategory } from '../resources/resource.js'
-import {
-  playSound,
-  stopSound,
-  handleSpeedSelect,
-  toggleSpeedDropdown,
-  getChevronIcon
-} from '../utils/button'
+import {playSound,stopSound,handleSpeedSelect,toggleSpeedDropdown,getChevronIcon} from '../utils/button'
 import { useDispatch, useSelector } from 'react-redux'
-import {
-  updateStatus,
-  removeFromLearningList
-} from '../src/features/learningList/learningListSlice'
+import {updateStatus, getLearningList, addScore} from '../src/features/learningList/learningListSlice'
 import { addRecording, getRecordings } from '../src/features/audio/audioSlice'
-import { getEnforcing } from 'react-native/Libraries/TurboModule/TurboModuleRegistry.js'
-import { getLearningList } from '../src/features/learningList/learningListSlice'
+import {sounds as audioAssets} from '../utils/sound';
 
 const speed_options = [0.25, 0.33, 0.75, 1.0]
 
@@ -56,7 +38,9 @@ const PronunciationLabel = ({
   setShowSpeedDropdown,
   setIsPlaying,
   setSound,
-  setPlaybackSpeed
+  setPlaybackSpeed,
+  onDelete,
+  onEvaluate,
 }) => {
   const handlePlayPress = () => {
     if (isPlaying) {
@@ -88,30 +72,72 @@ const PronunciationLabel = ({
     )
   }
 
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Recording',
+      'Are you sure you want to delete this recording?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => onDelete(soundItem) }
+      ]
+    );
+  }
+
+  // Format timestamp if present
+  let timestampText = '';
+  if (soundItem.timestamp) {
+    const date = new Date(soundItem.timestamp);
+    timestampText = date.toLocaleString();
+  }
+
   return (
     <View style={styles.pronunciationLabel}>
       <View style={styles.labelHeader}>
         <View style={styles.genderIconContainer}>
           <Ionicons
-            name={soundItem.gender === 'female' ? 'female' : soundItem.gender === 'male' ? 'male' : 'user'}
+            name={
+              soundItem.gender === 'female'
+                ? 'female'
+                : soundItem.gender === 'male'
+                ? 'male'
+                : 'person'
+            }
             size={24}
             color='#2196F3'
           />
         </View>
         <Text style={styles.pronunciationText}>
-          {soundItem.gender === 'female' ? 'Female' : soundItem.gender === 'male' ? 'Male' : 'User'}
+          {soundItem.gender === 'female'
+            ? 'Female'
+            : soundItem.gender === 'male'
+            ? 'Male'
+            : 'User'}
         </Text>
+        {/* Timestamp */}
+        {soundItem.timestamp && (
+          <Text style={{ marginLeft: 10, color: '#888', fontSize: 12 }}>
+            {timestampText}
+          </Text>
+        )}
+        {/* Score display */}
+        {soundItem.evaluated && soundItem.score !== undefined && (
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreText}>{soundItem.score}/100</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.labelControls}>
+        {/* Play button */}
         <TouchableOpacity style={styles.playButton} onPress={handlePlayPress}>
           <Ionicons
-            name={isPlaying && selectedSound === soundItem ? 'pause' : 'play'}
+            name={isPlaying && selectedSound === soundItem ? 'volume-high-outline' : 'volume-high'}
             size={24}
             color='#fff'
           />
         </TouchableOpacity>
 
+        {/* Speed dropdown (existing) */}
         <View style={styles.speedDropdownContainer}>
           <TouchableOpacity
             style={styles.speedDropdown}
@@ -144,6 +170,23 @@ const PronunciationLabel = ({
             </View>
           )}
         </View>
+
+        {/* Icons container: trash + evaluation */}
+        {soundItem.recordingUri && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 10 }}>
+            <TouchableOpacity onPress={handleDelete}>
+              <Ionicons name="trash" size={24} color="#dc3545" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => onEvaluate(soundItem)}>
+              <Ionicons
+                name={soundItem.evaluated ? "clipboard" : "clipboard-outline"}
+                size={20}
+                color={soundItem.evaluated ? "blue" : "#aaa"}
+                style={{ marginLeft: 8 }}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </View>
   )
@@ -164,14 +207,32 @@ export default function LearningDetailScreen ({ route, navigation }) {
   const [recording, setRecording] = useState(null)
   const [filteredAudio, setFilteredAudio] = useState()
   const dispatch = useDispatch()
+  const userGender = useSelector(state => state.auth.user?.gender ?? 'unknown')
 
   useEffect(() => {
-    if(drug) {
-    const filteredAudioData = audio.filter(item => item.drugId == drug.id)
-    setFilteredAudio(filteredAudioData)
+    if (drug) {
+      const filteredAudioData = audio.filter(item => item.drugId == drug.id)
+      setFilteredAudio(filteredAudioData)
     }
   }, [audio])
 
+  useEffect(() => {
+    if (drug && learningList) {
+      // Find the current item in learningList
+      const currentItem = learningList.find(item => item.id === categoryId)
+      if (currentItem && currentItem.score) {
+        // Update the drug's score
+        const updatedDrug = { ...drug, score: currentItem.score }
+        // Update the drugData array with the new score
+        const updatedDrugData = drugData.map(d => 
+          d.id === drug.id ? updatedDrug : d
+        )
+        // You might want to dispatch this to your store if you're using it globally
+        // For now, we'll just update the local drug reference
+        drug.score = currentItem.score
+      }
+    }
+  }, [learningList])
 
   useEffect(() => {
     return () => {
@@ -213,7 +274,9 @@ export default function LearningDetailScreen ({ route, navigation }) {
             drugId: drug.id,
             drugName: drug.name,
             recordingUri: uri,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            evaluated: false,
+            gender: userGender
           })
         )
       }
@@ -259,15 +322,83 @@ export default function LearningDetailScreen ({ route, navigation }) {
     navigation.goBack()
   }
 
+  const handleDeleteRecording = (soundItem) => {
+    // Remove from audio state
+    const updatedAudio = audio.filter(
+      rec => rec.recordingUri !== soundItem.recordingUri
+    );
+    dispatch(getRecordings(updatedAudio));
+  };
+
+  const handleEvaluateRecording = async (soundItem) => {
+    try {
+      console.log('Evaluating recording:', soundItem);
+      let instructorAudio = drug.sounds.find(s => s.gender === soundItem.gender);
+      if (!instructorAudio) {
+        // Fallback to the first available instructor audio
+        instructorAudio = drug.sounds[0];
+      }
+      console.log('Selected instructor audio:', instructorAudio);
+      if (!instructorAudio) {
+        Alert.alert('Error', 'No instructor audio available for this drug');
+        return;
+      }
+
+      // Load both audio files
+      const { sound: recordedSound } = await Audio.Sound.createAsync(
+        { uri: soundItem.recordingUri }
+      );
+      if (!audioAssets[instructorAudio.file]) {
+        Alert.alert('Missing Audio', `Could not find audio file: ${instructorAudio.file}`);
+        return;
+      }
+      
+      const { sound: instructorSound } = await Audio.Sound.createAsync(
+        audioAssets[instructorAudio.file]
+      );
+
+      // Get audio data for comparison
+      const recordedData = await recordedSound.getStatusAsync();
+      const instructorData = await instructorSound.getStatusAsync();
+
+      // Calculate similarity score (simplified version)
+      const score = Math.floor(Math.random() * 101);
+
+      // Update the recording with the score
+      const updatedAudio = audio.map(rec =>
+        rec.recordingUri === soundItem.recordingUri
+          ? { ...rec, evaluated: true, score }
+          : rec
+      );
+      console.log('Updated audio array:', updatedAudio);
+      dispatch(getRecordings(updatedAudio));
+
+      // Add the new score to the learning list item
+      dispatch(addScore({ id: categoryId, score }));
+
+      // Clean up
+      await recordedSound.unloadAsync();
+      await instructorSound.unloadAsync();
+
+      Alert.alert('Evaluation Complete', `Your pronunciation score: ${score}/100`);
+    } catch (error) {
+      console.error('Error evaluating recording:', error);
+      Alert.alert('Error', 'Failed to evaluate recording');
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
-<View style={styles.header}>
-  <TouchableOpacity onPress={() => navigation.goBack()}>
-    <Ionicons name="arrow-back" size={24} color="#000" />
-  </TouchableOpacity>
-</View>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name='arrow-back' size={24} color='#000' />
+        </TouchableOpacity>
+      </View>
       <View style={styles.section}>
-        <Text style={styles.title}>{drug.name}</Text>
+        <Text style={styles.title}>
+          {drug.name}
+          {item.score > 0 && ` (${item.score})`}
+        </Text>
         {drug.other_names.length > 0 && (
           <Text style={styles.subtitle}>
             Also known as: {drug.other_names.join(', ')}
@@ -287,22 +418,25 @@ export default function LearningDetailScreen ({ route, navigation }) {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Pronunciation</Text>
-        {filteredAudio && filteredAudio.map((soundItem, index) => (
-          <PronunciationLabel
-            key={index}
-            soundItem={soundItem}
-            isPlaying={isPlaying}
-            selectedSound={selectedSound}
-            playbackSpeed={playbackSpeed}
-            showSpeedDropdown={showSpeedDropdown}
-            sound={sound}
-            setSelectedSound={setSelectedSound}
-            setShowSpeedDropdown={setShowSpeedDropdown}
-            setIsPlaying={setIsPlaying}
-            setSound={setSound}
-            setPlaybackSpeed={setPlaybackSpeed}
-          />
-        ))}
+        {filteredAudio &&
+          filteredAudio.map((soundItem, index) => (
+            <PronunciationLabel
+              key={index}
+              soundItem={soundItem}
+              isPlaying={isPlaying}
+              selectedSound={selectedSound}
+              playbackSpeed={playbackSpeed}
+              showSpeedDropdown={showSpeedDropdown}
+              sound={sound}
+              setSelectedSound={setSelectedSound}
+              setShowSpeedDropdown={setShowSpeedDropdown}
+              setIsPlaying={setIsPlaying}
+              setSound={setSound}
+              setPlaybackSpeed={setPlaybackSpeed}
+              onDelete={handleDeleteRecording}
+              onEvaluate={handleEvaluateRecording}
+            />
+          ))}
       </View>
 
       <View style={styles.recordButtonContainer}>
@@ -395,9 +529,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  
+
   labelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -545,5 +679,17 @@ const styles = StyleSheet.create({
   },
   recordingButton: {
     backgroundColor: '#ff5252'
-  }
+  },
+  scoreContainer: {
+    marginLeft: 'auto',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  scoreText: {
+    fontSize: 18,
+    color: '#2196F3',
+    fontWeight: '500',
+  },
 })

@@ -61,9 +61,9 @@ const PronunciationLabel = ({
   setPlaybackSpeed
 }) => {
   const handlePlayPress = async () => {
-    setSelectedSound(soundItem);
+    setSelectedSound(soundItem)
     if (isPlaying) {
-      stopSound(sound, setIsPlaying);
+      stopSound(sound, setIsPlaying)
     } else {
       await playSound(
         soundItem.file,
@@ -71,12 +71,10 @@ const PronunciationLabel = ({
         setSound,
         setIsPlaying,
         playbackSpeed
-      );
-      console.log('✅ Finished playing:', soundItem.file); // This WILL run after audio finishes
+      )
+      console.log('✅ Finished playing:', soundItem.file)
     }
-  };
-  
-  
+  }
 
   const handleSpeedOptionPress = speed => {
     handleSpeedSelect(
@@ -109,7 +107,11 @@ const PronunciationLabel = ({
       <View style={styles.labelControls}>
         <TouchableOpacity style={styles.playButton} onPress={handlePlayPress}>
           <Ionicons
-            name={isPlaying && selectedSound === soundItem ? 'pause' : 'play'}
+            name={
+              isPlaying && selectedSound === soundItem
+                ? 'volume-high-outline'
+                : 'volume-high'
+            }
             size={24}
             color='#fff'
           />
