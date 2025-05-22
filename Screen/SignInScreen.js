@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { setCredentials } from '../src/features/auth/authSlice';
+import { getLearningList } from '../src/features/learningList/learningListSlice';
+import { getRecordings } from '../src/features/audio/audioSlice';
 
 const SignInScreen = ({ switchToSignUp }) => {
   const [email, setEmail] = useState('');
@@ -17,6 +19,7 @@ const SignInScreen = ({ switchToSignUp }) => {
   const dispatch = useDispatch();
 
   const handleSignIn = async () => {
+    console.log('Attempting to sign in...');
     try {
       const response = await fetch('http://localhost:3000/auth/login', {
         method: 'POST',
@@ -27,15 +30,79 @@ const SignInScreen = ({ switchToSignUp }) => {
       });
 
       const data = await response.json();
+      console.log('Sign-in response received:', data);
 
       if (response.ok) {
         dispatch(setCredentials(data));
+        console.log('Credentials set, fetching study record...');
+
+        const studyRecordResponse = await fetch(`http://localhost:3000/study-record/${data.user.id}`, {
+          headers: {
+            'Authorization': `Bearer ${data.token}`,
+          },
+        });
+        
+        console.log('Study record response status:', studyRecordResponse.status);
+
+        if (studyRecordResponse.ok) {
+          const studyRecord = await studyRecordResponse.json();
+          console.log('Study record fetched:', studyRecord);
+          
+          let learningItems = [];
+          try {
+            console.log('Attempting to parse learning items:', studyRecord.items);
+            if (typeof studyRecord.items === 'string' && studyRecord.items.trim() !== '') {
+              learningItems = JSON.parse(studyRecord.items);
+              console.log('Parsed learning items (from string):', learningItems);
+            } else if (Array.isArray(studyRecord.items)) {
+              learningItems = studyRecord.items;
+               console.log('Learning items (already array):', learningItems);
+            } else {
+              console.log('Study record items field is not a string or array, initializing as empty.');
+            }
+            
+            learningItems = learningItems.map(item => ({
+              ...item,
+              status: item.status || 'current',
+              score: item.score || 0,
+              recordings: Array.isArray(item.recordings) ? item.recordings : []
+            }));
+             console.log('Learning items after ensuring structure:', learningItems);
+
+            dispatch(getLearningList(learningItems));
+            console.log('Dispatched getLearningList with items.');
+
+            const audioRecordings = learningItems
+              .filter(item => Array.isArray(item.recordings) && item.recordings.length > 0)
+              .flatMap(item => item.recordings)
+              .filter(recording => recording.recordingUri);
+
+            console.log('Extracted audio recordings for dispatch:', audioRecordings);
+
+            if (audioRecordings.length > 0) {
+              dispatch(getRecordings(audioRecordings));
+               console.log('Dispatched getRecordings with extracted recordings.');
+            } else {
+               console.log('No audio recordings found to dispatch.');
+            }
+
+          } catch (e) {
+            console.error('Error parsing or processing learning items:', e);
+            learningItems = [];
+          }
+        } else {
+           const errorText = await studyRecordResponse.text();
+           console.error('Failed to fetch study record:', studyRecordResponse.status, errorText);
+           Alert.alert('Error', `Failed to fetch study record: ${studyRecordResponse.status}`);
+        }
+        
         Alert.alert('Success', 'Sign in successfully!');
       } else {
         Alert.alert('Error', data.message || 'Failed to sign in');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to connect to the server');
+      console.error('Sign-in process caught an error:', error);
+      Alert.alert('Error', 'Failed to connect to the server or process sign-in.');
     }
   };
 

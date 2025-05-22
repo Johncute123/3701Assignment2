@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { logout, setCredentials } from '../src/features/auth/authSlice'
+import { clearLearningList } from '../src/features/learningList/learningListSlice'
+import { clearRecordings } from '../src/features/audio/audioSlice'
 import SignInScreen from './SignInScreen'
 import SignUpScreen from './SignUpScreen'
 import {
@@ -20,13 +22,11 @@ const UserProfileScreen = () => {
   const dispatch = useDispatch()
   const [showSignUp, setShowSignUp] = useState(false)
 
-  // Update modal state
   const [modalVisible, setModalVisible] = useState(false)
   const [newUsername, setNewUsername] = useState(user?.username || '')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
-  // Stats
   const currentLearning = learningList.filter(
     item => item.status === 'current'
   ).length
@@ -38,7 +38,7 @@ const UserProfileScreen = () => {
     0
   )
 
-  // Update logic
+
   const handleUpdate = async () => {
     if (!newUsername.trim()) {
       Alert.alert('Error', 'Username cannot be empty')
@@ -73,6 +73,12 @@ const UserProfileScreen = () => {
     } catch (error) {
       Alert.alert('Error', 'Failed to connect to the server')
     }
+  }
+
+  const handleSignOut = () => {
+    dispatch(logout())
+    dispatch(clearLearningList())
+    dispatch(clearRecordings())
   }
 
   if (!user) {
@@ -136,7 +142,7 @@ const UserProfileScreen = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.signOutButton}
-            onPress={() => dispatch(logout())}
+            onPress={handleSignOut}
           >
             <Text style={styles.buttonText}>Sign Out</Text>
           </TouchableOpacity>

@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { NavigationContainer } from '@react-navigation/native'
 import { createStackNavigator } from '@react-navigation/stack'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { Provider, useSelector } from 'react-redux'
+import { Provider, useSelector, useDispatch } from 'react-redux'
 import { store } from './src/store'
 import DrugCategoryScreen from './Screen/DrugCategoryScreen'
 import DrugListScreen from './Screen/DrugListScreen'
@@ -12,13 +12,13 @@ import { Text, View, Alert } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import LearningListScreen from './Screen/LearningListScreen'
 import LearningDetailScreen from './Screen/LearningDetailScreen'
-import { drugData } from './resources/resource'
-import { getRecordings } from './src/features/audio/audioSlice'
-import { useDispatch } from 'react-redux'
 import UserProfileScreen from './Screen/UserProfileScreen'
 import { useNavigation } from '@react-navigation/native'
-import SignInScreen from './Screen/SignInScreen'
-import SignUpScreen from './Screen/SignUpScreen'
+import CommunityScreen from './Screen/CommunityScreen'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { setLoadedCredentials, selectToken, selectCurrentUser, selectIsAuthenticated } from './src/features/auth/authSlice'
+import { getLearningList } from './src/features/learningList/learningListSlice'
+import { getRecordings } from './src/features/audio/audioSlice'
 
 
 const Stack = createStackNavigator()
@@ -34,11 +34,7 @@ function Learning() {
 }
 
 function Community() {
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text>Community</Text>
-    </View>
-  )
+    return <CommunityScreen />
 }
 
 function Drugs() {
@@ -67,28 +63,123 @@ function MyTabs() {
   const dispatch = useDispatch()
   const learningList = useSelector(state => state.learningList.items)
   const currentItems = learningList.filter(item => item.status === "current")
-  const audio = useSelector(state => state.audio.recordings)
   const navigation = useNavigation()
   const isAuthenticated = useSelector(state => state.auth.isAuthenticated)
+  const authToken = useSelector(selectToken)
+  const currentUser = useSelector(selectCurrentUser)
+
+  const fetchStudyRecord = async (userId, token, dispatch) => {
+    console.log(`[fetchStudyRecord] Attempting to fetch study record for user: ${userId}`);
+    try {
+      const studyRecordResponse = await fetch(`http://localhost:3000/study-record/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      console.log(`[fetchStudyRecord] Study record response status: ${studyRecordResponse.status}`);
+
+      if (studyRecordResponse.ok) {
+        const studyRecord = await studyRecordResponse.json()
+        console.log('[fetchStudyRecord] Full study record object received:', studyRecord)
+
+        let learningItems = []
+        console.log('[fetchStudyRecord] Raw items field:', studyRecord.items)
+
+        try {
+          if (typeof studyRecord.items === 'string' && studyRecord.items.trim() !== '') {
+            learningItems = JSON.parse(studyRecord.items)
+            console.log('[fetchStudyRecord] Parsed learning items (from string):', learningItems)
+          } else if (Array.isArray(studyRecord.items)) {
+            learningItems = studyRecord.items
+            console.log('[fetchStudyRecord] Learning items (already array):', learningItems)
+          } else {
+            console.log('[fetchStudyRecord] Study record items field is not a string or array, initializing as empty.')
+          }
+
+          learningItems = learningItems.map(item => ({
+            ...item,
+            status: item.status || 'current',
+            score: item.score || 0,
+            recordings: Array.isArray(item.recordings) ? item.recordings : []
+          }))
+          console.log('[fetchStudyRecord] Learning items after ensuring structure:', learningItems)
+
+          dispatch(getLearningList(learningItems))
+          console.log('[fetchStudyRecord] Dispatched getLearningList with items.')
+
+          const audioRecordings = learningItems
+            .filter(item => Array.isArray(item.recordings) && item.recordings.length > 0)
+            .flatMap(item => item.recordings)
+            .filter(recording => recording.recordingUri)
+
+          console.log('[fetchStudyRecord] Extracted audio recordings for dispatch:', audioRecordings)
+
+          if (audioRecordings.length > 0) {
+            dispatch(getRecordings(audioRecordings))
+            console.log('[fetchStudyRecord] Dispatched getRecordings with extracted recordings.')
+          } else {
+            dispatch(getRecordings([]))
+            console.log('[fetchStudyRecord] No audio recordings found to dispatch.')
+          }
+
+        } catch (e) {
+          console.error('[fetchStudyRecord] Error parsing or processing loaded learning items:', e)
+        }
+      } else {
+        const errorText = await studyRecordResponse.text()
+        console.error('[fetchStudyRecord] Failed to fetch study record on app load:', studyRecordResponse.status, errorText)
+        dispatch(getLearningList([]))
+        dispatch(getRecordings([]))
+      }
+    } catch (error) {
+      console.error('[fetchStudyRecord] Error fetching study record on app load:', error)
+      dispatch(getLearningList([]))
+      dispatch(getRecordings([]))
+    }
+  }
 
   useEffect(() => {
-    let newSounds = []
-    for (let i = 0; i < drugData.length; i++) {
-      for (let j = 0; j < drugData[i].sounds.length; j++) {
-        newSounds.push({
-          ...drugData[i].sounds[j],
-          drugId: drugData[i].id,
-          drugName: drugData[i].name,
-          recordingUri: audio.find(item => item.drugId === drugData[i].id && item.drugName === drugData[i].name)?.recordingUri
-        })
+    const loadAppData = async () => {
+      console.log('[loadAppData] Effect triggered. isAuthenticated:', isAuthenticated)
+
+      if (!isAuthenticated) {
+        console.log('[loadAppData] Not authenticated, attempting to load from AsyncStorage...')
+        try {
+          const userJson = await AsyncStorage.getItem('user')
+          const token = await AsyncStorage.getItem('token')
+          console.log('[loadAppData] AsyncStorage user:', userJson ? 'found' : 'not found', 'token:', token ? 'found' : 'not found')
+
+          if (userJson && token) {
+            console.log('[loadAppData] Credentials found in AsyncStorage, setting and fetching study record...')
+            const user = JSON.parse(userJson)
+            dispatch(setLoadedCredentials({ user, token }))
+            fetchStudyRecord(user.id, token, dispatch)
+          } else {
+            console.log('[loadAppData] No credentials found in AsyncStorage.')
+          }
+        } catch (error) {
+          console.error('[loadAppData] Failed to load credentials from AsyncStorage:', error)
+        }
+      }
+      
+      if (isAuthenticated && currentUser && authToken) {
+        console.log('[loadAppData] Authenticated, fetching study record...')
+        fetchStudyRecord(currentUser.id, authToken, dispatch)
+      } else if (!isAuthenticated) {
+        console.log('[loadAppData] Not authenticated and no stored credentials, clearing states.')
+        dispatch(getLearningList([]))
+        dispatch(getRecordings([]))
       }
     }
-    dispatch(getRecordings(newSounds))
-  }, [])
+
+    loadAppData()
+
+  }, [isAuthenticated, authToken, currentUser, dispatch])
 
   const handleLearningTabPress = (e) => {
     if (!isAuthenticated) {
-      e.preventDefault();
+      e.preventDefault()
       Alert.alert(
         'Login Required',
         'Please sign in to access the Learning tab',
@@ -102,9 +193,9 @@ function MyTabs() {
             style: 'cancel',
           },
         ]
-      );
+      )
     }
-  };
+  }
 
   return (
     <Tab.Navigator

@@ -42,20 +42,29 @@ const PronunciationLabel = ({
   onDelete,
   onEvaluate,
 }) => {
-  const handlePlayPress = () => {
+  const handlePlayPress = async () => {
+    setSelectedSound(soundItem)
     if (isPlaying) {
       stopSound(sound, setIsPlaying)
     } else {
-      setSelectedSound(soundItem)
-      playSound(
-        soundItem.file ? soundItem.file : soundItem.recordingUri,
-        sound,
-        setSound,
-        setIsPlaying,
-        playbackSpeed,
-        () => {},
-        setSelectedSound
-      )
+      if (soundItem.isDefault) {
+        await playSound(
+          soundItem.file,
+          sound,
+          setSound,
+          setIsPlaying,
+          playbackSpeed
+        )
+      } else {
+        await playSound(
+          soundItem.recordingUri,
+          sound,
+          setSound,
+          setIsPlaying,
+          playbackSpeed
+        )
+      }
+      console.log('✅ Finished playing:', soundItem.isDefault ? soundItem.file : soundItem.recordingUri)
     }
   }
 
@@ -208,27 +217,37 @@ export default function LearningDetailScreen ({ route, navigation }) {
   const [filteredAudio, setFilteredAudio] = useState()
   const dispatch = useDispatch()
   const userGender = useSelector(state => state.auth.user?.gender ?? 'unknown')
+  const currentUser = useSelector(state => state.auth.user);
+  const authToken = useSelector(state => state.auth.token);
 
   useEffect(() => {
     if (drug) {
-      const filteredAudioData = audio.filter(item => item.drugId == drug.id)
-      setFilteredAudio(filteredAudioData)
+      const filteredAudioData = audio.filter(item => item.drugId === drug.id);
+      if (filteredAudioData.length === 0) {
+        const defaultAudio = drug.sounds.map(item => ({
+          drugId: drug.id,
+          drugName: drug.name,
+          file: item.file,
+          gender: item.gender,
+          isDefault: true,
+          recordingUri: undefined
+        }));
+        dispatch(getRecordings([...audio, ...defaultAudio]));
+        setFilteredAudio(defaultAudio);
+      } else {
+        setFilteredAudio(filteredAudioData);
+      }
     }
-  }, [audio])
+  }, [audio, drug]);
 
   useEffect(() => {
     if (drug && learningList) {
-      // Find the current item in learningList
       const currentItem = learningList.find(item => item.id === categoryId)
       if (currentItem && currentItem.score) {
-        // Update the drug's score
         const updatedDrug = { ...drug, score: currentItem.score }
-        // Update the drugData array with the new score
         const updatedDrugData = drugData.map(d => 
           d.id === drug.id ? updatedDrug : d
         )
-        // You might want to dispatch this to your store if you're using it globally
-        // For now, we'll just update the local drug reference
         drug.score = currentItem.score
       }
     }
@@ -304,30 +323,198 @@ export default function LearningDetailScreen ({ route, navigation }) {
     )
   }
 
-  const handleRemove = () => {
-    const updateLearningList = learningList.filter(i => i.id !== item.id)
-    dispatch(getLearningList(updateLearningList))
-    const updateRecording = audio.filter(item => item.drugId !== drug.id)
-    dispatch(getRecordings(updateRecording))
-    navigation.goBack()
-  }
+  const associateRecordingsWithItems = (items, allRecordings) => {
+    return items.map(item => {
+      const itemRecordings = allRecordings.filter(rec => rec.drugId === item.drugId && rec.recordingUri);
+      return {
+        ...item,
+        recordings: itemRecordings || []
+      };
+    });
+  };
 
-  const handleFinish = () => {
-    dispatch(updateStatus({ id: item.id, status: 'finished' }))
-    navigation.goBack()
-  }
+  const handleRemove = async () => {
+    const updatedLearningList = learningList.filter(i => i.id !== item.id);
 
-  const handleReview = () => {
-    dispatch(updateStatus({ id: item.id, status: 'current' }))
-    navigation.goBack()
-  }
+    dispatch(getLearningList(updatedLearningList));
 
-  const handleDeleteRecording = (soundItem) => {
-    // Remove from audio state
+    const updateRecording = audio.filter(rec => rec.drugId !== drug.id);
+    dispatch(getRecordings(updateRecording));
+
+
+    setTimeout(async () => {
+
+      const learningListWithRecordings = associateRecordingsWithItems(updatedLearningList, audio); 
+
+
+      const currentLearning = learningListWithRecordings.filter(i => i.status === 'current').length;
+      const finished = learningListWithRecordings.filter(i => i.status === 'finished').length;
+      const totalScore = learningListWithRecordings.reduce((sum, i) => sum + (i.score || 0), 0);
+
+      const updateDto = {
+        currentLearning,
+        finishedLearning: finished,
+        totalScore,
+        items: learningListWithRecordings 
+      };
+
+      if (currentUser && authToken) {
+        try {
+          const response = await fetch('http://localhost:3000/study-record', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`,
+            },
+            body: JSON.stringify(updateDto),
+          });
+
+          if (response.ok) {
+            console.log('Study record updated successfully after remove.');
+          } else {
+             const errorText = await response.text();
+             console.error('Failed to update backend study record after remove:', response.status, errorText);
+          }
+        } catch (error) {
+          console.error('Failed to update backend study record after remove:', error);
+        }
+      }
+       navigation.goBack();
+    }, 0); 
+
+  };
+
+  const handleFinish = async () => {
+    try {
+      dispatch(updateStatus({ id: item.id, status: 'finished' }));
+
+      const updatedLearningList = learningList.map(i => 
+        i.id === item.id ? { ...i, status: 'finished' } : i
+      );
+
+      const learningListWithRecordings = associateRecordingsWithItems(updatedLearningList, audio);
+
+      const currentLearning = learningListWithRecordings.filter(i => i.status === 'current').length;
+      const finished = learningListWithRecordings.filter(i => i.status === 'finished').length;
+      const totalScore = learningListWithRecordings.reduce((sum, i) => sum + (i.score || 0), 0);
+
+      const updateDto = {
+        currentLearning,
+        finishedLearning: finished,
+        totalScore,
+        items: learningListWithRecordings
+      };
+
+      if (currentUser && authToken) {
+        const response = await fetch('http://localhost:3000/study-record', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(updateDto),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Failed to update backend study record:', response.status, errorText);
+          Alert.alert('Error', 'Failed to update study status. Please try again.');
+          return;
+        }
+
+        console.log('Study record updated successfully after finish.');
+        navigation.goBack(); 
+      }
+    } catch (error) {
+      console.error('Failed to update study record:', error);
+      Alert.alert('Error', 'Failed to update study status. Please try again.');
+    }
+  };
+
+  const handleReview = async () => {
+    try {
+      dispatch(updateStatus({ id: item.id, status: 'current' }));
+      
+      const updatedLearningList = learningList.map(i => 
+        i.id === item.id ? { ...i, status: 'current' } : i
+      );
+
+      const learningListWithRecordings = associateRecordingsWithItems(updatedLearningList, audio);
+
+      const currentLearning = learningListWithRecordings.filter(i => i.status === 'current').length;
+      const finished = learningListWithRecordings.filter(i => i.status === 'finished').length;
+      const totalScore = learningListWithRecordings.reduce((sum, i) => sum + (i.score || 0), 0);
+
+      const updateDto = {
+        currentLearning,
+        finishedLearning: finished,
+        totalScore,
+        items: learningListWithRecordings 
+      };
+
+      if (currentUser && authToken) {
+        const response = await fetch('http://localhost:3000/study-record', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(updateDto),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Failed to update backend study record:', response.status, errorText);
+          Alert.alert('Error', 'Failed to update study status. Please try again.');
+          return;
+        }
+
+        console.log('Study record updated successfully after review.');
+        navigation.goBack(); 
+      }
+    } catch (error) {
+      console.error('Failed to update study record:', error);
+      Alert.alert('Error', 'Failed to update study status. Please try again.');
+    }
+  };
+
+  const handleDeleteRecording = async (soundItem) => {
     const updatedAudio = audio.filter(
       rec => rec.recordingUri !== soundItem.recordingUri
     );
     dispatch(getRecordings(updatedAudio));
+
+     setTimeout(async () => {
+      const latestLearningList = learningList; 
+      const learningListWithRecordings = associateRecordingsWithItems(latestLearningList, updatedAudio); 
+
+      const currentLearning = learningListWithRecordings.filter(i => i.status === 'current').length;
+      const finished = learningListWithRecordings.filter(i => i.status === 'finished').length;
+      const totalScore = learningListWithRecordings.reduce((sum, i) => sum + (i.score || 0), 0);
+
+      const updateDto = {
+        currentLearning,
+        finishedLearning: finished,
+        totalScore,
+        items: learningListWithRecordings 
+      };
+
+       if (currentUser && authToken) {
+        try {
+          await fetch('http://localhost:3000/study-record', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`,
+            },
+            body: JSON.stringify(updateDto),
+          });
+          console.log('Study record updated successfully after recording delete.');
+        } catch (error) {
+          console.error('Failed to update backend study record after recording delete:', error);
+        }
+       }
+    }, 0); 
   };
 
   const handleEvaluateRecording = async (soundItem) => {
@@ -335,7 +522,6 @@ export default function LearningDetailScreen ({ route, navigation }) {
       console.log('Evaluating recording:', soundItem);
       let instructorAudio = drug.sounds.find(s => s.gender === soundItem.gender);
       if (!instructorAudio) {
-        // Fallback to the first available instructor audio
         instructorAudio = drug.sounds[0];
       }
       console.log('Selected instructor audio:', instructorAudio);
@@ -344,7 +530,6 @@ export default function LearningDetailScreen ({ route, navigation }) {
         return;
       }
 
-      // Load both audio files
       const { sound: recordedSound } = await Audio.Sound.createAsync(
         { uri: soundItem.recordingUri }
       );
@@ -357,14 +542,13 @@ export default function LearningDetailScreen ({ route, navigation }) {
         audioAssets[instructorAudio.file]
       );
 
-      // Get audio data for comparison
+
       const recordedData = await recordedSound.getStatusAsync();
       const instructorData = await instructorSound.getStatusAsync();
 
-      // Calculate similarity score (simplified version)
+
       const score = Math.floor(Math.random() * 101);
 
-      // Update the recording with the score
       const updatedAudio = audio.map(rec =>
         rec.recordingUri === soundItem.recordingUri
           ? { ...rec, evaluated: true, score }
@@ -373,8 +557,45 @@ export default function LearningDetailScreen ({ route, navigation }) {
       console.log('Updated audio array:', updatedAudio);
       dispatch(getRecordings(updatedAudio));
 
-      // Add the new score to the learning list item
       dispatch(addScore({ id: categoryId, score }));
+
+      if (currentUser && authToken) {
+
+        const updatedLearningList = learningList.map(item => 
+          item.id === categoryId ? { ...item, score: score } : item
+        );
+        
+        const learningListWithRecordings = associateRecordingsWithItems(updatedLearningList, updatedAudio);
+        
+        const currentLearning = learningListWithRecordings.filter(item => item.status === 'current').length;
+        const finished = learningListWithRecordings.filter(item => item.status === 'finished').length;
+        const totalScore = learningListWithRecordings.reduce((sum, item) => sum + (item.score || 0), 0);
+
+        const updateDto = {
+          currentLearning,
+          finishedLearning: finished,
+          totalScore,
+          items: learningListWithRecordings 
+        };
+
+        const response = await fetch('http://localhost:3000/study-record', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(updateDto),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Failed to update backend study record:', response.status, errorText);
+          Alert.alert('Error', 'Failed to save evaluation score. Please try again.');
+          return;
+        }
+
+        console.log('Backend study record updated successfully with new score!');
+      }
 
       // Clean up
       await recordedSound.unloadAsync();

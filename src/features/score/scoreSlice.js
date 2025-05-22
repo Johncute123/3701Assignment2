@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
-  scores: {}, // Object to store scores by drug ID
+  scores: {}, 
 };
 
 export const scoreSlice = createSlice({
@@ -14,7 +14,6 @@ export const scoreSlice = createSlice({
     },
     updateScore: (state, action) => {
       const { drugId, score } = action.payload;
-      // Only update if new score is higher than existing score
       if (!state.scores[drugId] || score > state.scores[drugId]) {
         state.scores[drugId] = score;
       }
@@ -27,7 +26,6 @@ export const scoreSlice = createSlice({
 
 export const { setScore, updateScore, clearScores } = scoreSlice.actions;
 
-// Selectors
 export const selectScoreByDrugId = (state, drugId) => state.score.scores[drugId] || 0;
 export const selectAllScores = (state) => state.score.scores;
 

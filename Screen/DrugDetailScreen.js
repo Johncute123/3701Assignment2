@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Pressable
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { drugData, drugCategory } from '../resources/resource.js'
@@ -165,30 +164,69 @@ export default function DrugDetailScreen ({ route }) {
   const dispatch = useDispatch()
   const learningList = useSelector(state => state.learningList.items)
   const audio = useSelector(state => state.audio.recordings)
+  const currentUser = useSelector(state => state.auth.user)
+  const authToken = useSelector(state => state.auth.token)
 
-  const handleAddToLearningList = () => {
-    const findAudio = audio.find(item => item.drugId === drug.id)
+  const handleAddToLearningList = async () => {
+
+    const findAudio = audio.find(item => item.drugId === drug.id);
     if (!findAudio) {
       const newAudio = drug.sounds.map(item => ({
         drugId: drug.id,
         drugName: drug.name,
         file: item.file,
         gender: item.gender,
-        recordingUri: undefined
-      }))
-      const addNewAudio = JSON.parse(JSON.stringify(audio)).concat(newAudio)
-
-      dispatch(getRecordings(addNewAudio))
+        isDefault: true, 
+        recordingUri: undefined 
+      }));
+      dispatch(getRecordings(JSON.parse(JSON.stringify(audio)).concat(newAudio)));
     }
-    dispatch(
-      addToLearningList({
-        drugId: drug.id,
-        name: drug.name,
-        category: drug.category,
-        pronunciations: drug.pronunciations
-      })
-    )
-  }
+
+    const existingRecordingsForDrug = audio.filter(rec => rec.drugId === drug.id);
+
+    const newItem = {
+      id: Date.now(),
+      drugId: drug.id,
+      name: drug.name,
+      category: drug.category,
+      pronunciations: drug.pronunciations,
+      status: 'current',
+      score: 0,
+      recordings: existingRecordingsForDrug || []
+    };
+    dispatch(addToLearningList(newItem));
+
+
+    if (currentUser && authToken) {
+
+      const updatedLearningList = [...learningList, newItem]; 
+
+
+      const currentLearning = updatedLearningList.filter(i => i.status === 'current').length;
+      const finished = updatedLearningList.filter(i => i.status === 'finished').length;
+      const totalScore = updatedLearningList.reduce((sum, i) => sum + (i.score || 0), 0);
+
+      const updateDto = {
+        currentLearning,
+        finishedLearning: finished,
+        totalScore,
+        items: updatedLearningList 
+      };
+
+      try {
+        await fetch('http://localhost:3000/study-record', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(updateDto),
+        });
+      } catch (error) {
+        console.error('Failed to update backend study record:', error);
+      }
+    }
+  };
 
   const isInLearningList = learningList.some(item => item.drugId === drug.id)
 

@@ -5,16 +5,15 @@ const SplashScreen = ({ navigation }) => {
   const fadeAnim = new Animated.Value(0);
 
   useEffect(() => {
-    // Fade in animation
+
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 1000,
       useNativeDriver: true,
     }).start();
 
-    // Navigate to main screen after 3 seconds
     const timer = setTimeout(() => {
-      navigation.replace('Main'); // Replace with your main screen name
+      navigation.replace('Main'); 
     }, 3000);
 
     return () => clearTimeout(timer);

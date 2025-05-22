@@ -23,9 +23,12 @@ export const audioSlice = createSlice({
     removeRecording: (state, action) => {
       state.recordings = state.recordings.filter(recording => recording.id !== action.payload);
     },
+    clearRecordings: (state) => {
+      state.recordings = [];
+    }
   },
 });
 
-export const { addRecording, removeRecording, getRecordings } = audioSlice.actions;
+export const { addRecording, removeRecording, getRecordings, clearRecordings } = audioSlice.actions;
 
 export default audioSlice.reducer; 

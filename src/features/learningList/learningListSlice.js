@@ -2,6 +2,8 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
   items: [],
+  loading: false,
+  error: null
 };
 
 export const learningListSlice = createSlice({
@@ -10,6 +12,16 @@ export const learningListSlice = createSlice({
   reducers: {
     getLearningList: (state, action) => {
       state.items = action.payload;
+      state.loading = false;
+      state.error = null;
+    },
+    setLoading: (state) => {
+      state.loading = true;
+      state.error = null;
+    },
+    setError: (state, action) => {
+      state.loading = false;
+      state.error = action.payload;
     },
     addToLearningList: (state, action) => {
       state.items.push({
@@ -42,10 +54,24 @@ export const learningListSlice = createSlice({
         // Update the highest score
         item.score = Math.max(...item.scores.map(s => s.score));
       }
+    },
+    clearLearningList: (state) => {
+      state.items = [];
+      state.loading = false;
+      state.error = null;
     }
   },
 });
 
-export const { addToLearningList, updateStatus, removeFromLearningList, getLearningList, addScore } = learningListSlice.actions;
+export const { 
+  addToLearningList, 
+  updateStatus, 
+  removeFromLearningList, 
+  getLearningList, 
+  addScore, 
+  clearLearningList,
+  setLoading,
+  setError
+} = learningListSlice.actions;
 
 export default learningListSlice.reducer; 
